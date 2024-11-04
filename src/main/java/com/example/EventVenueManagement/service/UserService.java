@@ -1,10 +1,15 @@
 package com.example.EventVenueManagement.service;
 
 
+import com.example.EventVenueManagement.exception.RoleNotFoundException;
+import com.example.EventVenueManagement.exception.UserAlreadyVerifiedException;
+import com.example.EventVenueManagement.exception.UserNotFoundException;
 import com.example.EventVenueManagement.model.User;
 import com.example.EventVenueManagement.repository.UserRepository;
 import com.example.EventVenueManagement.request.RegisterUserRequest;
+import com.example.EventVenueManagement.request.VerifyUserRequest;
 import com.example.EventVenueManagement.response.RegisterUserResponse;
+import com.example.EventVenueManagement.response.VerifyUserResponse;
 import jakarta.mail.MessagingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,19 +40,21 @@ public class UserService {
 
     public RegisterUserResponse register(RegisterUserRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            logger.info("Email already exists: {}", request.getEmail());
+            logger.warn("Email already exists: {}", request.getEmail());
             return new RegisterUserResponse(false, "Email already exists", request.getEmail());
         }
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            logger.info("Password confirmation does not match for {}", request.getEmail());
+            logger.warn("Password confirmation does not match for {}", request.getEmail());
             return new RegisterUserResponse(false, "Passwords do not match", request.getEmail());
         }
+
         var user = new User();
         user.setEmail(request.getEmail());
         user.setPassword(encoder.encode(request.getPassword()));
         user.setVerificationCode(generateVerificationCode());
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(15));
         user.setAccountVerified(false);
+
         switch (request.getRole()) {
             case "VENUE OWNER":
                 user.setRole(VENUE_OWNER);
@@ -56,15 +63,17 @@ public class UserService {
                 user.setRole(EVENT_PLANNER);
                 break;
             default:
-                throw new IllegalArgumentException("Invalid role: " + request.getRole());
+                logger.error("Invalid role: {}", request.getRole());
+                throw new RoleNotFoundException("Invalid role: " + request.getRole());
         }
 
         sendVerificationEmail(user);
         logger.info("Verification code sent to {}", user.getEmail());
         userRepository.save(user);
 
-        return new RegisterUserResponse(true, "User successfully", request.getEmail());
+        return new RegisterUserResponse(true, "User registered successfully", request.getEmail());
     }
+
 
     private String generateVerificationCode() {
         var random = new Random();
@@ -108,4 +117,35 @@ public class UserService {
             e.printStackTrace();
         }
     }
+
+    public VerifyUserResponse verifyUser(VerifyUserRequest request) {
+        var optionalUser = userRepository.findByVerificationCode(request.getVerificationCode());
+
+        if (optionalUser.isPresent()) {
+            var user = optionalUser.get();
+
+            if (user.getVerificationCodeExpiration().isBefore(LocalDateTime.now()))
+                return new VerifyUserResponse(false, "Verification code expired");
+
+            user.setAccountVerified(true);
+            user.setVerificationCode(null);
+            user.setVerificationCodeExpiration(null);
+            userRepository.save(user);
+        }else
+            return new VerifyUserResponse(false, "Invalid verification code.");
+
+        return new VerifyUserResponse(true, "User verified successfully");
+    }
+
+    public void resendVerificationCode(String email) {
+        var user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User with provided mail not found."));
+
+        if (user.isAccountVerified())
+            throw new UserAlreadyVerifiedException("User is already verified.");
+
+        user.setVerificationCode(generateVerificationCode());
+        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(15));
+
+    }
+
 }

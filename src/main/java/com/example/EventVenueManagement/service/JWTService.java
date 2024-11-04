@@ -52,12 +52,12 @@ public class JWTService {
         return Keys.hmacShaKeyFor(keyByte);
     }
 
-    public String extracEmail(String token) {
+    public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
     public boolean validateToken(String token, UserDetails userDetails) {
-        final String email = extracEmail(token);
+        final String email = extractEmail(token);
         return (email.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 
