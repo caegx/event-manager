@@ -1,19 +1,21 @@
 package com.example.EventVenueManagement.controller;
 
+import com.example.EventVenueManagement.exception.UserAlreadyVerifiedException;
+import com.example.EventVenueManagement.exception.UserNotFoundException;
+import com.example.EventVenueManagement.request.LoginRequest;
 import com.example.EventVenueManagement.request.RegisterUserRequest;
 import com.example.EventVenueManagement.request.VerifyUserRequest;
+import com.example.EventVenueManagement.response.LoginResponse;
 import com.example.EventVenueManagement.response.RegisterUserResponse;
 import com.example.EventVenueManagement.response.VerifyUserResponse;
 import com.example.EventVenueManagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
+@CrossOrigin
 public class UserController {
     @Autowired
     private UserService service;
@@ -39,7 +41,16 @@ public class UserController {
 
     @PostMapping("resend-code")
     public ResponseEntity<?> resendVerificationCode(@RequestParam String email) {
-        service.resendVerificationCode(email);
-        return
+        try {
+            service.resendVerificationCode(email);
+            return ResponseEntity.ok("Verification code resent successfully.");
+        }catch (UserNotFoundException | UserAlreadyVerifiedException exception) {
+            return ResponseEntity.badRequest().body(exception.getMessage());
+        }
+    }
+
+    @PostMapping("login")
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+        
     }
 }

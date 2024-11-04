@@ -56,10 +56,10 @@ public class UserService {
         user.setAccountVerified(false);
 
         switch (request.getRole()) {
-            case "VENUE OWNER":
+            case "OWNER":
                 user.setRole(VENUE_OWNER);
                 break;
-            case "EVENT PLANNER":
+            case "PLANNER":
                 user.setRole(EVENT_PLANNER);
                 break;
             default:
@@ -145,6 +145,8 @@ public class UserService {
 
         user.setVerificationCode(generateVerificationCode());
         user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(15));
+        sendVerificationEmail(user);
+        userRepository.save(user);
 
     }
 
